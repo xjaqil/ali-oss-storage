@@ -169,7 +169,7 @@ class AliOssAdapter implements FilesystemAdapter
         $location = $this->applyPathPrefix($path);
         $options = $this->getOptions($this->options, $config);
         if (!isset($options[OssClient::OSS_LENGTH])) {
-            $options[OssClient::OSS_LENGTH] = contentSize($contents);
+            $options[OssClient::OSS_LENGTH] = $this->contentSize($contents);
         }
         if (!isset($options[OssClient::OSS_CONTENT_TYPE])) {
             $options[OssClient::OSS_CONTENT_TYPE] = $this->mimeTypeDetector->detectMimeType($path, $contents);
@@ -651,35 +651,20 @@ class AliOssAdapter implements FilesystemAdapter
         return array(OssClient::OSS_HEADERS => $options);
     }
 
-    /**
-     * Retrieve options from a Config instance. done
-     *
-     * @param Config $config
-     *
-     * @return array
-     */
-    protected function getOptionsFromConfig(Config $config)
+
+    protected function getOptionsFromConfig(Config $config): array
     {
         $options = [];
 
         foreach (static::$metaOptions as $option) {
-            if (!$config->has($option)) {
-                continue;
-            }
             $options[static::$metaMap[$option]] = $config->get($option);
         }
 
         if ($visibility = $config->get('visibility')) {
-            // For local reference
-            // $options['visibility'] = $visibility;
-            // For external reference
             $options['x-oss-object-acl'] = $visibility === Visibility::PUBLIC ? OssClient::OSS_ACL_TYPE_PUBLIC_READ : OssClient::OSS_ACL_TYPE_PRIVATE;
         }
 
         if ($mimetype = $config->get('mimetype')) {
-            // For local reference
-            // $options['mimetype'] = $mimetype;
-            // For external reference
             $options['Content-Type'] = $mimetype;
         }
 
@@ -782,6 +767,11 @@ class AliOssAdapter implements FilesystemAdapter
 
     protected function applyPathPrefix($path): string
     {
-        return '/' . trim($this->prefixer->prefixPath($path), '/');
+        return $this->prefixer->prefixPath($path);
+    }
+
+    public static function contentSize($contents): bool|int
+    {
+        return defined('MB_OVERLOAD_STRING') ? mb_strlen($contents, '8bit') : strlen($contents);
     }
 }
