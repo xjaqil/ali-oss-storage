@@ -34,7 +34,6 @@ class ServiceProvider extends LaravelServiceProvider
                 $config
             );
         });
-
     }
 
     /**
