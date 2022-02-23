@@ -39,13 +39,13 @@ class AliOssAdapter implements FilesystemAdapter
     /** @var MimeTypeDetector */
     protected MimeTypeDetector $mimeTypeDetector;
 
-    protected $debug;
+    protected bool $debug;
 
     protected string $bucket;
 
     protected string $endPoint;
 
-    protected $cdnDomain;
+    protected string $cdnDomain;
 
     protected bool $ssl;
 
@@ -54,9 +54,7 @@ class AliOssAdapter implements FilesystemAdapter
     protected array $options = [
         'Multipart' => 128
     ];
-    /**
-     * @var array
-     */
+
     protected static array $resultMap = [
         'Body' => 'raw_contents',
         'Content-Length' => 'size',
@@ -65,9 +63,7 @@ class AliOssAdapter implements FilesystemAdapter
         'StorageClass' => 'storage_class',
     ];
 
-    /**
-     * @var array
-     */
+
     protected static array $metaOptions = [
         'CacheControl',
         'Expires',
@@ -92,39 +88,20 @@ class AliOssAdapter implements FilesystemAdapter
         'ContentEncoding' => 'Content-Encoding',
     ];
 
-
-    /**
-     * AliOssAdapter constructor.
-     *
-     * @param OssClient $client
-     * @param string $bucket
-     * @param string $endPoint
-     * @param bool $ssl
-     * @param bool $isCname
-     * @param bool $debug
-     * @param string $prefix
-     * @param array $options
-     */
     public function __construct(
         OssClient $client,
-        string    $bucket,
-        string    $endPoint,
-        bool      $ssl,
-                  $cdnDomain,
+        array     $config,
         string    $prefix = '',
-        bool      $isCname = false,
-        bool      $debug = false,
         array     $options = [],
-
     )
     {
-        $this->debug = $debug;
         $this->client = $client;
-        $this->bucket = $bucket;
-        $this->endPoint = $endPoint;
-        $this->ssl = $ssl;
-        $this->isCname = $isCname;
-        $this->cdnDomain = $cdnDomain;
+        $this->debug = $config['debug'];
+        $this->bucket = $config['bucket'];
+        $this->endPoint = $config['endpoint'];
+        $this->ssl = $config['ssl'];
+        $this->isCname = $config['is_cname'];
+        $this->cdnDomain = $config['cdn_domain'];
         $this->options = array_merge($this->options, $options);
         $this->prefixer = new PathPrefixer($prefix);
         $this->mimeTypeDetector = new FinfoMimeTypeDetector();
@@ -166,7 +143,7 @@ class AliOssAdapter implements FilesystemAdapter
      */
     public function write(string $path, string $contents, Config $config): void
     {
-        $location = $this->applyPathPrefix($path);
+        $object = $this->applyPathPrefix($path);
         $options = $this->getOptions($this->options, $config);
         if (!isset($options[OssClient::OSS_LENGTH])) {
             $options[OssClient::OSS_LENGTH] = $this->contentSize($contents);
@@ -175,10 +152,10 @@ class AliOssAdapter implements FilesystemAdapter
             $options[OssClient::OSS_CONTENT_TYPE] = $this->mimeTypeDetector->detectMimeType($path, $contents);
         }
         try {
-            $this->client->putObject($this->bucket, $location, $contents, $options);
+            $this->client->putObject($this->bucket, $object, $contents, $options);
         } catch (OssException $e) {
             $this->logErr(__FUNCTION__, $e);
-            throw UnableToWriteFile::atLocation($location, $e->getMessage(), $e);
+            throw UnableToWriteFile::atLocation($object, $e->getMessage(), $e);
         }
     }
 
@@ -657,6 +634,9 @@ class AliOssAdapter implements FilesystemAdapter
         $options = [];
 
         foreach (static::$metaOptions as $option) {
+            if (!$config->get($option)) {
+                continue;
+            }
             $options[static::$metaMap[$option]] = $config->get($option);
         }
 
