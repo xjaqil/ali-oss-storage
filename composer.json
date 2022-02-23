@@ -1,0 +1,35 @@
+{
+    "name": "xjaqil/ali-oss-storage",
+    "description": "aliyun oss filesystem storage for laravel 9.0",
+    "keywords": [
+        "aliyun",
+        "oss",
+        "laravel",
+        "filesystems",
+        "storage"
+    ],
+    "homepage": "https://github.com/xjaqil/ali-oss-storage",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "xjaqil",
+            "email": "xjaqil@163.com"
+        }
+    ],
+    "require": {
+        "aliyuncs/oss-sdk-php": "^2.4",
+        "league/mime-type-detection": "^1.9"
+    },
+    "autoload": {
+        "psr-4": {
+            "Xjaqil\\AliOSS\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Xjaqil\\AliOSS\\AliOssServiceProvider"
+            ]
+        }
+    }
+}
