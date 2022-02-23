@@ -205,7 +205,7 @@ class AliOssAdapter implements FilesystemAdapter
         $options[OssClient::OSS_CHECK_MD5] = true;
 
         if (!isset($options[OssClient::OSS_CONTENT_TYPE])) {
-            $options[OssClient::OSS_CONTENT_TYPE] = Util::guessMimeType($path, '');
+            $options[OssClient::OSS_CONTENT_TYPE] = $this->mimeTypeDetector->detectMimeTypeFromPath($path);
         }
         try {
             $this->client->uploadFile($this->bucket, $object, $filePath, $options);
@@ -415,10 +415,13 @@ class AliOssAdapter implements FilesystemAdapter
      */
     public function setVisibility(string $path, string $visibility): void
     {
-        $object = $this->applyPathPrefix($path);
-        $acl = ($visibility === Visibility::PUBLIC) ? OssClient::OSS_ACL_TYPE_PUBLIC_READ : OssClient::OSS_ACL_TYPE_PRIVATE;
-        $this->client->putObjectAcl($this->bucket, $object, $acl);
-        throw UnableToSetVisibility::atLocation($path, 'Adapter does not support visibility controls.');
+        try {
+            $object = $this->applyPathPrefix($path);
+            $acl = ($visibility === Visibility::PUBLIC) ? OssClient::OSS_ACL_TYPE_PUBLIC_READ : OssClient::OSS_ACL_TYPE_PRIVATE;
+            $this->client->putObjectAcl($this->bucket, $object, $acl);
+        } catch (OssException $e) {
+            throw UnableToSetVisibility::atLocation($path, 'Adapter does not support visibility controls.');
+        }
     }
 
     /**
@@ -571,9 +574,9 @@ class AliOssAdapter implements FilesystemAdapter
         }
 
         if ($acl == OssClient::OSS_ACL_TYPE_PUBLIC_READ) {
-            $res['visibility'] = AdapterInterface::VISIBILITY_PUBLIC;
+            $res['visibility'] = Visibility::PUBLIC;
         } else {
-            $res['visibility'] = AdapterInterface::VISIBILITY_PRIVATE;
+            $res['visibility'] = Visibility::PRIVATE;
         }
 
         return $res;
@@ -585,7 +588,7 @@ class AliOssAdapter implements FilesystemAdapter
      */
     public function getUrl($path): string
     {
-        if (!$this->fileExists($path)) throw new  UnableToCheckExistence();
+//        if (!$this->fileExists($path)) throw new  UnableToCheckExistence();
         return ($this->ssl ? 'https://' : 'http://') . ($this->isCname ? ($this->cdnDomain == '' ? $this->endPoint : $this->cdnDomain) : $this->bucket . '.' . $this->endPoint) . '/' . ltrim($path, '/');
     }
 
@@ -600,7 +603,7 @@ class AliOssAdapter implements FilesystemAdapter
     {
         $metadata = $this->getVisibility($path);
 
-        return $metadata['visibility'] === AdapterInterface::VISIBILITY_PUBLIC ? OssClient::OSS_ACL_TYPE_PUBLIC_READ : OssClient::OSS_ACL_TYPE_PRIVATE;
+        return $metadata['visibility'] === Visibility::PUBLIC ? OssClient::OSS_ACL_TYPE_PUBLIC_READ : OssClient::OSS_ACL_TYPE_PRIVATE;
     }
 
 
@@ -670,7 +673,7 @@ class AliOssAdapter implements FilesystemAdapter
             // For local reference
             // $options['visibility'] = $visibility;
             // For external reference
-            $options['x-oss-object-acl'] = $visibility === AdapterInterface::VISIBILITY_PUBLIC ? OssClient::OSS_ACL_TYPE_PUBLIC_READ : OssClient::OSS_ACL_TYPE_PRIVATE;
+            $options['x-oss-object-acl'] = $visibility === Visibility::PUBLIC ? OssClient::OSS_ACL_TYPE_PUBLIC_READ : OssClient::OSS_ACL_TYPE_PRIVATE;
         }
 
         if ($mimetype = $config->get('mimetype')) {
